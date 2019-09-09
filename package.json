@@ -1,0 +1,22 @@
+{
+    "name": "spsocket",
+    "version": "1.0.0",
+    "description": "",
+    "main": "server.js",
+    "scripts": {
+        "start": "nodemon server.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://gitlab.com/gkafuwa/spsocket.git"
+    },
+    "author": "Given Kafuwa",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://gitlab.com/gkafuwa/spsocket/issues"
+    },
+    "homepage": "https://gitlab.com/gkafuwa/spsocket#readme",
+    "dependencies": {
+        "socket.io": "^2.2.0"
+    }
+}
