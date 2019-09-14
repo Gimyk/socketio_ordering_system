@@ -15,28 +15,23 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         console.log('connection is a go');
 
         socket.on('getProds', (data) => {
+            console.log('data:', data)
             prod.find({}).limit(100).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
-                socket.broadcast.emit('prods', res);
+                socket.emit('prods', res);
             });
         });
 
         socket.on('callWaiter', (data) => {
             console.log('something', data);
-            socket.broadcast.emit('WaiterCall', data); // emit an event to the socket
-
-        }); // listen to the event
+            socket.emit('WaiterCall', data); // emit an event to the socket
+        });
 
         socket.on('order', (data) => {
-            prod.insert({ name: name, message: message }, () => {
-                socket.broadcast.emit('output', [data]);
-                // send status object
-                sendStatus({
-                    message: "Message sent",
-                    clear: true
-                });
+            tables.updateOne({ name: name, message: message }, () => {
+                socket.emit('order placed');
             });
         });
 
