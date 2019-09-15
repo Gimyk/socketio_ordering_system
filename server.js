@@ -1,6 +1,8 @@
 const io = require('socket.io').listen(8888);
 const mongo = require('mongodb').MongoClient;
 
+
+
 mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
     if (err) {
         throw err
@@ -23,6 +25,15 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 socket.emit('prods', res);
             });
         });
+        socket.on('getTables', (data) => {
+            console.log('data:', data)
+            tables.find({}).limit(50).sort({ _id: 1 }).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                socket.emit('tables', res);
+            });
+        });
 
         socket.on('callWaiter', (data) => {
             console.log('something', data);
@@ -36,6 +47,4 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         });
 
     }); // end socket
-
-
 });
