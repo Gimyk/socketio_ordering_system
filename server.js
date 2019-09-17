@@ -8,10 +8,12 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         throw err
     }
     console.log('connected db');
+    console.log('Server running on 8888');
 
     let prod = db.collection('products');
     let users = db.collection('users');
     let tables = db.collection('tables');
+    let orders = db.collection('orders');
 
     io.on('connection', socket => {
         console.log('connection is a go');
@@ -41,9 +43,27 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         });
 
         socket.on('order', (data) => {
-            tables.updateOne({ name: name, message: message }, () => {
-                socket.emit('order placed');
+            // console.log('data before:', data);
+
+            const val = data.orders;
+            val.forEach(e => {
+                for (let p in e) {
+                    delete e['index'];
+                    delete e['img'];
+                    delete e['description'];
+                    delete e['_id'];
+                    delete e['id'];
+                }
             });
+            // console.log('this is the data: =>', data)
+            try {
+                orders.insertOne(data, () => {
+                    // socket.emit('order placed');
+                    console.log('order placed');
+                });
+            } catch (error) {
+                console.log('something happened')
+            }
         });
 
     }); // end socket
