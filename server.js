@@ -37,6 +37,17 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             });
         });
 
+        socket.on('getForTab', (data) => {
+            console.log('data:', data);
+            orders.find({ table: data, status: 'active' }).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                console.log('res:', res);
+                socket.emit('orderForTab', res);
+            });
+        });
+
         socket.on('callWaiter', (data) => {
             console.log('something', data);
             socket.emit('WaiterCall', data); // emit an event to the socket
