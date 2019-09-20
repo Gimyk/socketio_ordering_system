@@ -48,8 +48,23 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             });
         });
 
+        socket.on('forPay', (data) => {
+            console.log('socket id :', socket.id);
+
+            console.log('data:', data);
+            orders.find({ table: data, status: 'active' }).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                console.log('res:', res);
+                // socket.broadcast.to(socket.id).emit('bill', res);
+                // socket.broadcast.to(socket.id).emit('bill', res);
+                io.to(socket.id).emit('bill', res);
+            });
+        });
+
         socket.on('callWaiter', (data) => {
-            console.log('something', data);
+            console.log('something', socket.id, data);
             socket.emit('WaiterCall', data); // emit an event to the socket
         });
 
@@ -69,7 +84,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             // console.log('this is the data: =>', data)
             try {
                 orders.insertOne(data, () => {
-                    // socket.emit('order placed');
                     console.log('order placed');
                 });
             } catch (error) {
@@ -79,3 +93,19 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
 
     }); // end socket
 });
+
+
+// socket.emit('message', "this is a test"); //sending to sender-client only
+// socket.broadcast.emit('message', "this is a test"); //sending to all clients except sender
+// socket.broadcast.to('game').emit('message', 'nice game'); //sending to all clients in 'game' room(channel) except sender
+// socket.to('game').emit('message', 'enjoy the game'); //sending to sender client, only if they are in 'game' room(channel)
+// socket.broadcast.to(socketid).emit('message', 'for your eyes only'); //sending to individual socketid
+// io.emit('message', "this is a test"); //sending to all clients, include sender
+// io.in('game').emit('message', 'cool game'); //sending to all clients in 'game' room(channel), include sender
+// io.of('myNamespace').emit('message', 'gg'); //sending to all clients in namespace 'myNamespace', include sender
+// socket.emit(); //send to all connected clients
+// socket.broadcast.emit(); //send to all connected clients except the one that sent the message
+// socket.on(); //event listener, can be called on client to execute on server
+// io.sockets.socket(); //for emiting to specific clients
+// io.sockets.emit(); //send to all connected clients (same as socket.emit)
+// io.sockets.on() ; //initial connection from a client.
