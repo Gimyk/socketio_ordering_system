@@ -24,12 +24,13 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 if (err) {
                     throw err
                 }
-                socket.emit('prods', res);
+                io.to(socket.id).emit('prods', res);
             });
         });
+
         socket.on('getTables', (data) => {
             console.log('data:', data)
-            tables.find({}).limit(50).sort({ _id: 1 }).toArray((err, res) => {
+            tables.find({}).limit(100).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
@@ -37,6 +38,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             });
         });
 
+        // getting orders
         socket.on('getForTab', (data) => {
             console.log('data:', data);
             orders.find({ table: data, status: 'active' }).toArray((err, res) => {
@@ -48,6 +50,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             });
         });
 
+        // getting orders made per customer
         socket.on('forPay', (data) => {
             console.log('socket id :', socket.id);
 
@@ -57,39 +60,47 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                     throw err
                 }
                 console.log('res:', res);
-                // socket.broadcast.to(socket.id).emit('bill', res);
-                // socket.broadcast.to(socket.id).emit('bill', res);
                 io.to(socket.id).emit('bill', res);
             });
         });
 
+        // calling waiter
         socket.on('callWaiter', (data) => {
-            console.log('something', socket.id, data);
-            socket.emit('WaiterCall', data); // emit an event to the socket
+            socket.broadcast.emit('WaiterCall', data);
         });
 
         socket.on('order', (data) => {
-            // console.log('data before:', data);
-
             const val = data.orders;
+            const num = Number(data.table)
             val.forEach(e => {
-                for (let p in e) {
-                    delete e['index'];
-                    delete e['img'];
-                    delete e['description'];
-                    delete e['_id'];
-                    delete e['id'];
-                }
+                delete e['index'];
+                delete e['img'];
+                delete e['description'];
+                delete e['_id'];
+                delete e['id'];
             });
-            // console.log('this is the data: =>', data)
             try {
                 orders.insertOne(data, () => {
-                    console.log('order placed');
+                    console.log('order placed for tabel:=> ', num);
+                    tables.update({ num: num }, { $set: { active: 'true' } });
                 });
+
             } catch (error) {
-                console.log('something happened')
+                console.log('something happened');
             }
         });
+
+        socket.on('clearOrder', (data) => {
+            try {
+                const num = Number(data)
+                console.log('clear order, ', num);
+                orders.updateMany({ table: num }, { $set: { status: 'done' } });
+                tables.update({ num: num }, { $set: { active: 'false' } });
+            } catch (error) {
+                console.error('something update');
+            }
+        });
+
 
     }); // end socket
 });
