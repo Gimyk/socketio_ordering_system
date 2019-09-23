@@ -34,7 +34,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 if (err) {
                     throw err
                 }
-                socket.emit('tables', res);
+                io.to(socket.id).emit('tables', res);
             });
         });
 
@@ -46,7 +46,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                     throw err
                 }
                 console.log('res:', res);
-                socket.emit('orderForTab', res);
+                io.to(socket.id).emit('orderForTab', res);
             });
         });
 
@@ -63,6 +63,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 io.to(socket.id).emit('bill', res);
             });
         });
+
 
         // calling waiter
         socket.on('callWaiter', (data) => {
@@ -88,6 +89,21 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             } catch (error) {
                 console.log('something happened');
             }
+        });
+
+        socket.on('updateOrder', (data) => {
+            const val = data.orders;
+            console.log('val:', data.table)
+
+            val.forEach(e => {
+                delete e['index'];
+                delete e['img'];
+                delete e['description'];
+                delete e['_id'];
+                delete e['id'];
+                orders.update({ table: data.table, status: 'active' }, { $push: { orders: e } });
+            });
+
         });
 
         socket.on('clearOrder', (data) => {
