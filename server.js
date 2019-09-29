@@ -1,6 +1,6 @@
 const io = require('socket.io').listen(8888);
 const mongo = require('mongodb').MongoClient;
-
+const ObjectID = require('mongodb').ObjectID;
 
 
 mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
@@ -117,6 +117,33 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             }
         });
 
+        socket.on('product', (data) => {
+            console.log('data:', data);
+            const products = data.products;
+            const id = data.products._id;
+            console.log('id:', id);
+            const type = data.type;
+            const title = products.title,
+                cat = products.cat,
+                description = products.description,
+                img = products.img,
+                price = products.price;
+
+            try {
+                if (type === 'update') {
+                    prod.updateOne({ _id: new ObjectID(id) }, { title, cat, description, img, price });
+                    console.log('updating');
+                } else if (type === 'insert') {
+                    prod.insertOne({ title, cat, description, img, price }, () => {});
+                } else if (type === 'delete') {
+                    prod.deleteOne({ _id: new ObjectID(id) })
+                        .then(result => console.log(`Deleted ${result.deletedCount} item.`))
+                        .catch(err => console.error(`Delete failed with error: ${err}`))
+                }
+            } catch (error) {
+                console.error('something update ', error);
+            }
+        });
 
     }); // end socket
 });
