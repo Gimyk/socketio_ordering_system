@@ -18,6 +18,24 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
     io.on('connection', socket => {
         console.log('connection is a go');
 
+        socket.on('login', (data) => {
+            console.log('data:', data)
+            const name = data.name;
+            const pass = data.pass;
+            prod.find({ name: name, pass: pass }).limit(100).sort({ _id: 1 }).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                console.log('res:', res)
+
+                if (res.length == 1) {
+                    io.to(socket.id).emit('log', 'pass');
+                } else {
+                    io.to(socket.id).emit('log', ' no pass');
+                }
+            });
+        });
+
         socket.on('getProds', (data) => {
             console.log('data:', data)
             prod.find({}).limit(100).sort({ _id: 1 }).toArray((err, res) => {
