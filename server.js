@@ -14,22 +14,24 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
     let users = db.collection('users');
     let tables = db.collection('tables');
     let orders = db.collection('orders');
+    let timeSheet = db.collection('timeSheet');
 
     io.on('connection', socket => {
         console.log('connection is a go');
 
         socket.on('login', (data) => {
-            console.log('data:', data)
+            console.log('data:', data);
             const name = data.name;
             const pass = data.pass;
-            prod.find({ name: name, pass: pass }).limit(100).sort({ _id: 1 }).toArray((err, res) => {
+            users.find({ name: name, pass: pass }).limit(1).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
-                console.log('res:', res)
+                console.log('res:', res);
 
                 if (res.length == 1) {
                     io.to(socket.id).emit('log', 'pass');
+                    timeSheet.insertOne({ name: name, timestamp: new Date().toUTCString() }, () => {});
                 } else {
                     io.to(socket.id).emit('log', ' no pass');
                 }
@@ -161,6 +163,24 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             } catch (error) {
                 console.error('something update ', error);
             }
+        });
+
+        // calling waiter
+        socket.on('newUser', (data) => {
+            try {
+                users.insertOne(data, () => {});
+            } catch (error) {
+                console.log('something happened');
+            }
+        });
+
+        socket.on('timeSheet', () => {
+            timeSheet.find({}).limit(1000).sort({ _id: 1 }).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                io.to(socket.id).emit('sheet', res);
+            });
         });
 
     }); // end socket
