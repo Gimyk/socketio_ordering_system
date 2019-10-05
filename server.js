@@ -16,19 +16,18 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
     let tables = db.collection('tables');
     let orders = db.collection('orders');
     let timeSheet = db.collection('timeSheet');
+    let feedback = db.collection('feedback');
 
     io.on('connection', socket => {
         console.log('connection is a go');
 
         socket.on('login', (data) => {
-            console.log('data:', data);
             const name = data.name;
             const pass = data.pass;
             users.find({ name: name, pass: pass }).limit(1).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
-                console.log('res:', res);
 
                 if (res.length == 1) {
                     io.to(socket.id).emit('log', 'pass');
@@ -40,7 +39,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         });
 
         socket.on('getProds', (data) => {
-            console.log('data:', data)
             prod.find({}).limit(200).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
@@ -50,7 +48,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         });
 
         socket.on('getTables', (data) => {
-            console.log('data:', data)
             tables.find({}).limit(100).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
@@ -61,12 +58,10 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
 
         // getting orders
         socket.on('getForTab', (data) => {
-            console.log('data:', data);
             orders.find({ table: data, status: 'active' }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
-                console.log('res:', res);
                 io.to(socket.id).emit('orderForTab', res);
             });
         });
@@ -77,7 +72,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 if (err) {
                     throw err
                 }
-                console.log('res:', res);
                 io.to(socket.id).emit('bill', res);
             });
         });
@@ -117,8 +111,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
 
         socket.on('updateOrder', (data) => {
             const val = data.orders;
-            console.log('val:', data.table)
-
             val.forEach(e => {
                 delete e['index'];
                 delete e['img'];
@@ -133,7 +125,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         socket.on('clearOrder', (data) => {
             try {
                 const num = Number(data)
-                console.log('clear order, ', num);
                 orders.updateMany({ table: num }, { $set: { status: 'done' } });
                 tables.update({ num: num }, { $set: { active: 'false', pay: '' } });
             } catch (error) {
@@ -142,10 +133,8 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         });
 
         socket.on('product', (data) => {
-            console.log('data:', data);
             const products = data.products;
             const id = data.products._id;
-            console.log('id:', id);
             const type = data.type;
             const title = products.title,
                 cat = products.cat,
@@ -156,7 +145,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             try {
                 if (type === 'update') {
                     prod.updateOne({ _id: new ObjectID(id) }, { title, cat, description, img, price });
-                    console.log('updating');
                 } else if (type === 'insert') {
                     prod.insertOne({ title, cat, description, img, price }, () => {});
                 } else if (type === 'delete') {
@@ -174,7 +162,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
             try {
                 users.insertOne(data, () => {});
             } catch (error) {
-                console.log('something happened');
+                console.log('something happened', error);
             }
         });
 
@@ -185,6 +173,11 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 }
                 io.to(socket.id).emit('sheet', res);
             });
+        });
+
+
+        socket.on('feedback', (data) => {
+            feedback.insertOne(data, () => {});
         });
 
     }); // end socket
