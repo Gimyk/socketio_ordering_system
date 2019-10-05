@@ -8,8 +8,9 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         throw err
     }
     console.log('connected db');
-    console.log('Server running on 8888');
+    console.log('Server running on port  8888');
 
+    // databases
     let prod = db.collection('products');
     let users = db.collection('users');
     let tables = db.collection('tables');
@@ -40,7 +41,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
 
         socket.on('getProds', (data) => {
             console.log('data:', data)
-            prod.find({}).limit(100).sort({ _id: 1 }).toArray((err, res) => {
+            prod.find({}).limit(200).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
@@ -72,9 +73,6 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
 
         // getting orders made per customer
         socket.on('forPay', (data) => {
-            console.log('socket id :', socket.id);
-
-            console.log('data:', data);
             orders.find({ table: data, status: 'active' }).toArray((err, res) => {
                 if (err) {
                     throw err
@@ -88,6 +86,12 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         // calling waiter
         socket.on('callWaiter', (data) => {
             socket.broadcast.emit('WaiterCall', data);
+            const num = Number(data.table);
+            if (data.type === 'card') {
+                tables.update({ num: num }, { $set: { pay: 'card' } });
+            } else if (data.type === 'cash') {
+                tables.update({ num: num }, { $set: { pay: 'cash' } });
+            }
         });
 
         socket.on('order', (data) => {
@@ -131,7 +135,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 const num = Number(data)
                 console.log('clear order, ', num);
                 orders.updateMany({ table: num }, { $set: { status: 'done' } });
-                tables.update({ num: num }, { $set: { active: 'false' } });
+                tables.update({ num: num }, { $set: { active: 'false', pay: '' } });
             } catch (error) {
                 console.error('something update');
             }
