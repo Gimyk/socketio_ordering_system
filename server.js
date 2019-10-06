@@ -22,16 +22,14 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         console.log('connection is a go');
 
         socket.on('login', (data) => {
-            const name = data.name;
-            const pass = data.pass;
-            users.find({ name: name, pass: pass }).limit(1).sort({ _id: 1 }).toArray((err, res) => {
+            users.find(data).limit(1).sort({ _id: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
 
                 if (res.length == 1) {
                     io.to(socket.id).emit('log', 'pass');
-                    timeSheet.insertOne({ name: name, timestamp: new Date().toUTCString() }, () => {});
+                    timeSheet.insertOne({ name: data.name, timestamp: new Date().toUTCString() }, () => {});
                 } else {
                     io.to(socket.id).emit('log', ' no pass');
                 }
@@ -178,6 +176,15 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
 
         socket.on('feedback', (data) => {
             feedback.insertOne(data, () => {});
+        });
+
+        socket.on('getfeedback', () => {
+            feedback.find({}).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                io.to(socket.id).emit('feed', res);
+            });
         });
 
     }); // end socket
