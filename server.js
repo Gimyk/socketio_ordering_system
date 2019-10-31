@@ -46,7 +46,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
         });
 
         socket.on('getTables', (data) => {
-            tables.find({}).limit(100).sort({ _id: 1 }).toArray((err, res) => {
+            tables.find({}).limit(100).sort({ num: 1 }).toArray((err, res) => {
                 if (err) {
                     throw err
                 }
@@ -62,6 +62,7 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 }
                 io.to(socket.id).emit('orderForTab', res);
             });
+            tables.update({ num: data }, { $set: { more: '' } });
         });
 
         // getting orders made per customer
@@ -103,30 +104,35 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                 });
 
             } catch (error) {
-                console.log('something happened');
+                console.error('> plece order', error);
             }
         });
 
         socket.on('updateOrder', (data) => {
-            const val = data.orders;
-            val.forEach(e => {
-                delete e['index'];
-                delete e['img'];
-                delete e['description'];
-                delete e['_id'];
-                delete e['id'];
-                orders.update({ table: data.table, status: 'active' }, { $push: { orders: e } });
-            });
+            try {
 
+                const val = data.orders;
+                val.forEach(e => {
+                    delete e['index'];
+                    delete e['img'];
+                    delete e['description'];
+                    delete e['_id'];
+                    delete e['id'];
+                    orders.update({ table: data.table, status: 'active' }, { $push: { orders: e } });
+                });
+                tables.update({ num: data.table }, { $set: { more: 'true' } });
+            } catch (error) {
+                console.error('> update order:', error)
+            }
         });
 
         socket.on('clearOrder', (data) => {
             try {
                 const num = Number(data)
                 orders.updateMany({ table: num }, { $set: { status: 'done' } });
-                tables.update({ num: num }, { $set: { active: 'false', pay: '' } });
+                tables.update({ num: num }, { $set: { active: 'false', pay: '', more: '' } });
             } catch (error) {
-                console.error('something update');
+                console.error('> clear order', error);
             }
         });
 
@@ -184,6 +190,15 @@ mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
                     throw err
                 }
                 io.to(socket.id).emit('feed', res);
+            });
+        });
+
+        socket.on('getAllOrders', () => {
+            orders.find({ status: "done" }).sort({ _id: 1 }).toArray((err, res) => {
+                if (err) {
+                    throw err
+                }
+                io.to(socket.id).emit('allOrders', res);
             });
         });
 
