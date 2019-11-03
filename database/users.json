@@ -1,0 +1,3 @@
+{"_id":{"$oid":"5d97a2af0eb53211d4c85c51"},"name":"admin","pass":"123451","rank":"admin"}
+{"_id":{"$oid":"5d97a89c916f3e0770194de0"},"name":"waiter","pass":"123456","rank":"waiter"}
+{"_id":{"$oid":"5d97a8da916f3e0770194de1"},"name":"wauter33","pass":"123456","rank":"waiter"}
