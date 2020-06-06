@@ -1,210 +1,237 @@
-const io = require('socket.io').listen(8888);
-const mongo = require('mongodb').MongoClient;
-const ObjectID = require('mongodb').ObjectID;
+const io = require("socket.io").listen(8888);
+const mongo = require("mongodb").MongoClient;
+const ObjectID = require("mongodb").ObjectID;
 
+mongo.connect("mongodb://127.0.0.1/doppio", (err, db) => {
+  if (err) {
+    throw err;
+  }
+  console.log("connected db");
+  console.log("Server running on port  8888");
 
-mongo.connect('mongodb://127.0.0.1/doppio', (err, db) => {
-    if (err) {
-        throw err
-    }
-    console.log('connected db');
-    console.log('Server running on port  8888');
+  // databases
+  let prod = db.collection("products");
+  let users = db.collection("users");
+  let tables = db.collection("tables");
+  let orders = db.collection("orders");
+  let timeSheet = db.collection("timeSheet");
+  let feedback = db.collection("feedback");
 
-    // databases
-    let prod = db.collection('products');
-    let users = db.collection('users');
-    let tables = db.collection('tables');
-    let orders = db.collection('orders');
-    let timeSheet = db.collection('timeSheet');
-    let feedback = db.collection('feedback');
+  io.on("connection", (socket) => {
+    console.log("connection is a go");
 
-    io.on('connection', socket => {
-        console.log('connection is a go');
+    socket.on("login", (data) => {
+      users
+        .find(data)
+        .limit(1)
+        .sort({ _id: 1 })
+        .toArray((err, res) => {
+          if (err) {
+            throw err;
+          }
 
-        socket.on('login', (data) => {
-            users.find(data).limit(1).sort({ _id: 1 }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-
-                if (res.length == 1) {
-                    io.to(socket.id).emit('log', 'pass');
-                    timeSheet.insertOne({ name: data.name, timestamp: new Date().toUTCString() }, () => {});
-                } else {
-                    io.to(socket.id).emit('log', ' no pass');
-                }
-            });
+          if (res.length == 1) {
+            io.to(socket.id).emit("log", "pass");
+            timeSheet.insertOne(
+              { name: data.name, timestamp: new Date().toUTCString() },
+              () => {}
+            );
+          } else {
+            io.to(socket.id).emit("log", " no pass");
+          }
         });
+    });
 
-        socket.on('getProds', (data) => {
-            prod.find({}).limit(200).sort({ _id: 1 }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('prods', res);
-            });
+    socket.on("getProds", (data) => {
+      prod
+        .find({})
+        .limit(200)
+        .sort({ _id: 1 })
+        .toArray((err, res) => {
+          if (err) {
+            throw err;
+          }
+          io.to(socket.id).emit("prods", res);
         });
+    });
 
-        socket.on('getTables', (data) => {
-            tables.find({}).limit(100).sort({ num: 1 }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('tables', res);
-            });
+    socket.on("getTables", (data) => {
+      tables
+        .find({})
+        .limit(100)
+        .sort({ num: 1 })
+        .toArray((err, res) => {
+          if (err) {
+            throw err;
+          }
+          io.to(socket.id).emit("tables", res);
         });
+    });
 
-        // getting orders
-        socket.on('getForTab', (data) => {
-            orders.find({ table: data, status: 'active' }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('orderForTab', res);
-            });
-            tables.update({ num: data }, { $set: { more: '' } });
+    // getting orders
+    socket.on("getForTab", (data) => {
+      orders.find({ table: data, status: "active" }).toArray((err, res) => {
+        if (err) {
+          throw err;
+        }
+        io.to(socket.id).emit("orderForTab", res);
+      });
+      tables.update({ num: data }, { $set: { more: "" } });
+    });
+
+    // getting orders made per customer
+    socket.on("forPay", (data) => {
+      orders.find({ table: data, status: "active" }).toArray((err, res) => {
+        if (err) {
+          throw err;
+        }
+        io.to(socket.id).emit("bill", res);
+      });
+    });
+
+    // calling waiter
+    socket.on("callWaiter", (data) => {
+      socket.broadcast.emit("WaiterCall", data);
+      const num = Number(data.table);
+      if (data.type === "card") {
+        tables.update({ num: num }, { $set: { pay: "card" } });
+      } else if (data.type === "cash") {
+        tables.update({ num: num }, { $set: { pay: "cash" } });
+      }
+    });
+
+    socket.on("order", (data) => {
+      const val = data.orders;
+      const num = Number(data.table);
+      val.forEach((e) => {
+        delete e["index"];
+        delete e["img"];
+        delete e["description"];
+        delete e["_id"];
+        delete e["id"];
+      });
+      try {
+        orders.insertOne(data, () => {
+          console.log("order placed for tabel:=> ", num);
+          tables.update({ num: num }, { $set: { active: "true" } });
         });
+      } catch (error) {
+        console.error("> plece order", error);
+      }
+    });
 
-        // getting orders made per customer
-        socket.on('forPay', (data) => {
-            orders.find({ table: data, status: 'active' }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('bill', res);
-            });
+    socket.on("updateOrder", (data) => {
+      try {
+        const val = data.orders;
+        val.forEach((e) => {
+          delete e["index"];
+          delete e["img"];
+          delete e["description"];
+          delete e["_id"];
+          delete e["id"];
+          orders.update(
+            { table: data.table, status: "active" },
+            { $push: { orders: e } }
+          );
         });
+        tables.update({ num: data.table }, { $set: { more: "true" } });
+      } catch (error) {
+        console.error("> update order:", error);
+      }
+    });
 
+    socket.on("clearOrder", (data) => {
+      try {
+        const num = Number(data);
+        orders.updateMany({ table: num }, { $set: { status: "done" } });
+        tables.update(
+          { num: num },
+          { $set: { active: "false", pay: "", more: "" } }
+        );
+      } catch (error) {
+        console.error("> clear order", error);
+      }
+    });
 
-        // calling waiter
-        socket.on('callWaiter', (data) => {
-            socket.broadcast.emit('WaiterCall', data);
-            const num = Number(data.table);
-            if (data.type === 'card') {
-                tables.update({ num: num }, { $set: { pay: 'card' } });
-            } else if (data.type === 'cash') {
-                tables.update({ num: num }, { $set: { pay: 'cash' } });
-            }
+    socket.on("product", (data) => {
+      try {
+        const products = data.products;
+        const id = data.products._id;
+        const type = data.type;
+        const title = products.title,
+          cat = products.cat,
+          description = products.description,
+          img = products.img,
+          price = products.price;
+
+        if (type === "update") {
+          prod.updateOne(
+            { _id: new ObjectID(id) },
+            { title, cat, description, img, price }
+          );
+        } else if (type === "insert") {
+          prod.insertOne({ title, cat, description, img, price }, () => {});
+        } else if (type === "delete") {
+          prod
+            .deleteOne({ _id: new ObjectID(id) })
+            .then((result) =>
+              console.log(`Deleted ${result.deletedCount} item.`)
+            )
+            .catch((err) => console.error(`Delete failed with error: ${err}`));
+        }
+      } catch (error) {
+        console.error("something update ", error);
+      }
+    });
+
+    // calling waiter
+    socket.on("newUser", (data) => {
+      try {
+        users.insertOne(data, () => {});
+      } catch (error) {
+        console.log("something happened", error);
+      }
+    });
+
+    socket.on("timeSheet", () => {
+      timeSheet
+        .find({})
+        .limit(1000)
+        .sort({ _id: 1 })
+        .toArray((err, res) => {
+          if (err) {
+            throw err;
+          }
+          io.to(socket.id).emit("sheet", res);
         });
+    });
 
-        socket.on('order', (data) => {
-            const val = data.orders;
-            const num = Number(data.table)
-            val.forEach(e => {
-                delete e['index'];
-                delete e['img'];
-                delete e['description'];
-                delete e['_id'];
-                delete e['id'];
-            });
-            try {
-                orders.insertOne(data, () => {
-                    console.log('order placed for tabel:=> ', num);
-                    tables.update({ num: num }, { $set: { active: 'true' } });
-                });
+    socket.on("feedback", (data) => {
+      feedback.insertOne(data, () => {});
+    });
 
-            } catch (error) {
-                console.error('> plece order', error);
-            }
+    socket.on("getfeedback", () => {
+      feedback.find({}).toArray((err, res) => {
+        if (err) {
+          throw err;
+        }
+        io.to(socket.id).emit("feed", res);
+      });
+    });
+
+    socket.on("getAllOrders", () => {
+      orders
+        .find({ status: "done" })
+        .sort({ _id: 1 })
+        .toArray((err, res) => {
+          if (err) {
+            throw err;
+          }
+          io.to(socket.id).emit("allOrders", res);
         });
-
-        socket.on('updateOrder', (data) => {
-            try {
-
-                const val = data.orders;
-                val.forEach(e => {
-                    delete e['index'];
-                    delete e['img'];
-                    delete e['description'];
-                    delete e['_id'];
-                    delete e['id'];
-                    orders.update({ table: data.table, status: 'active' }, { $push: { orders: e } });
-                });
-                tables.update({ num: data.table }, { $set: { more: 'true' } });
-            } catch (error) {
-                console.error('> update order:', error)
-            }
-        });
-
-        socket.on('clearOrder', (data) => {
-            try {
-                const num = Number(data)
-                orders.updateMany({ table: num }, { $set: { status: 'done' } });
-                tables.update({ num: num }, { $set: { active: 'false', pay: '', more: '' } });
-            } catch (error) {
-                console.error('> clear order', error);
-            }
-        });
-
-        socket.on('product', (data) => {
-            const products = data.products;
-            const id = data.products._id;
-            const type = data.type;
-            const title = products.title,
-                cat = products.cat,
-                description = products.description,
-                img = products.img,
-                price = products.price;
-
-            try {
-                if (type === 'update') {
-                    prod.updateOne({ _id: new ObjectID(id) }, { title, cat, description, img, price });
-                } else if (type === 'insert') {
-                    prod.insertOne({ title, cat, description, img, price }, () => {});
-                } else if (type === 'delete') {
-                    prod.deleteOne({ _id: new ObjectID(id) })
-                        .then(result => console.log(`Deleted ${result.deletedCount} item.`))
-                        .catch(err => console.error(`Delete failed with error: ${err}`))
-                }
-            } catch (error) {
-                console.error('something update ', error);
-            }
-        });
-
-        // calling waiter
-        socket.on('newUser', (data) => {
-            try {
-                users.insertOne(data, () => {});
-            } catch (error) {
-                console.log('something happened', error);
-            }
-        });
-
-        socket.on('timeSheet', () => {
-            timeSheet.find({}).limit(1000).sort({ _id: 1 }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('sheet', res);
-            });
-        });
-
-
-        socket.on('feedback', (data) => {
-            feedback.insertOne(data, () => {});
-        });
-
-        socket.on('getfeedback', () => {
-            feedback.find({}).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('feed', res);
-            });
-        });
-
-        socket.on('getAllOrders', () => {
-            orders.find({ status: "done" }).sort({ _id: 1 }).toArray((err, res) => {
-                if (err) {
-                    throw err
-                }
-                io.to(socket.id).emit('allOrders', res);
-            });
-        });
-
-    }); // end socket
+    });
+  }); // end socket
 });
-
 
 // socket.emit('message', "this is a test"); //sending to sender-client only
 // socket.broadcast.emit('message', "this is a test"); //sending to all clients except sender
